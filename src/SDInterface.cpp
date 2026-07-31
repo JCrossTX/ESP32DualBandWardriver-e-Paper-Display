@@ -185,6 +185,7 @@ void SDInterface::runUpdate() {
     display.tft->setCursor(0, 0);
     display.tft->print("Updating Firmware:\n");
     display.tft->println(bin_name);
+    display.flush(true);
     Logger::log(WARN_MSG, "Found new bin file (" + bin_name + "). Updating...");
     this->update_bin_file = bin_name;
   }
@@ -239,6 +240,7 @@ void SDInterface::runUpdate() {
 
       Logger::log(STD_MSG, "rebooting...");
       display.tft->println("Complete. Rebooting...");
+      display.flush(true);
       delay(1000);
       ESP.restart();
     }

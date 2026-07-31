@@ -18,6 +18,7 @@ Logs are formatted for WiGLE and saved to SD card.
     - [Initial Setup](#initial-setup)
     - [Webserver Usage](#webserver-usage)
     - [Display Screens](#display-screens)
+    - [e-Paper Display](#e-paper-display)
     - [Buttons](#buttons)
     - [Uploads](#uploads)
     - [Dock Mode](#dock-mode)
@@ -33,6 +34,9 @@ Join **#wardriving** on [WiGLE](https://wigle.net/stats#groupstats) and **KokosS
 **IMPORTANT: If you are using the ESP32-C5-DevKitC-1 with the JCMK C5 Wardriver host board or you are powering your DevKit via the 3V3 pin, you must remove the [3V3 jumper](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32c5/esp32-c5-devkitc-1/user_guide.html#current-measurement) from the DevKit or your device will not power properly.**
 
 ### [Display](https://a.co/d/dO8M3Ec)
+The firmware supports two displays. Pick one at build time — see [e-Paper Display](#e-paper-display).
+
+**ST7735 0.96" TFT (160x80, default)**
 | ESP32-C5 | Display |
 | -------- | ------- |
 | `3V3`    | `VCC`   |
@@ -43,6 +47,21 @@ Join **#wardriving** on [WiGLE](https://wigle.net/stats#groupstats) and **KokosS
 | `GPIO24` | `DC`    |
 | `GPIO27` | `BL`    |
 | `RST`    | `RST`   |
+
+**LAFVIN 2.13" e-Paper (250x122, SSD1680)**
+| ESP32-C5 | Display        |
+| -------- | -------------- |
+| `3V3`    | `VCC`          |
+| `GND`    | `GND`          |
+| `GPIO6`  | `CLK` / `SCK`  |
+| `GPIO7`  | `DIN` / `MOSI` |
+| `GPIO23` | `CS`           |
+| `GPIO24` | `DC`           |
+| `GPIO27` | `RST`          |
+| `GPIO25` | `BUSY`         |
+
+The panel needs `BUSY` (new) and a real `RST` line. `RST` reuses the pin the TFT
+used for its backlight, since an e-Paper panel has none.
 
 ### [GPS](https://a.co/d/hIqIitg)
 | ESP32-C5 | GPS   |
@@ -139,7 +158,41 @@ Large-format wardriving stats: GPS satellite count and lock status, battery perc
 Original stats display: firmware version, SD status, battery, scan status, log file name, per-band counts, GPS satellites, and running totals.
 
 **Screen 3 — Incognito**
-5-second countdown then backlight off. Press any button to exit.
+5-second countdown then backlight off. Press any button to exit. On an e-Paper
+build the panel is blanked instead, since there is no backlight to switch off.
+
+### e-Paper Display
+The firmware can drive a LAFVIN 2.13" SPI e-Paper panel (250x122, SSD1680)
+instead of the stock ST7735 TFT. Wiring is in [Display](#display); the panel
+shares `SCK`/`MOSI` with the SD card and adds a `BUSY` line on `GPIO25`.
+
+**Getting the firmware**
+- Download `src.esp32c5devkitc1_epaper.bin` from [Releases](../../releases) and
+  flash or SD-update it exactly like the standard build, or
+- Build it yourself: uncomment `#define DISPLAY_EPAPER` in `src/configs.h` (or
+  compile with `-DDISPLAY_EPAPER`). Building requires the
+  [GxEPD2](https://github.com/ZinggJM/GxEPD2) library in addition to the usual
+  dependencies.
+
+**What differs from the TFT build**
+- The bigger panel shows the same screens with larger counters and fits 13 menu
+  rows instead of 7.
+- Everything is black on white. Colors that carry meaning on the TFT (green for
+  a GPS fix, red for a missing SD card) all render as black ink, so the text
+  itself says what the color used to.
+- Screens refresh at most every 1.5 seconds and the stats screen redraws every
+  10 seconds rather than every 5 — an e-Paper refresh takes half a second and
+  blocks while it runs. Button presses still redraw immediately.
+- Every 20 partial refreshes the panel does one full refresh, which flashes
+  black and white for a few seconds. This is normal and clears the faint
+  ghosting that partial refreshes leave behind.
+- Upload progress counts up in steps of 10% instead of 1%.
+
+**If the panel stays blank or shows garbage**
+Panels sold as "2.13 inch" use several different controllers. Change
+`EPD_DRIVER_CLASS` in `src/configs.h` to one of the other 2.13" classes listed
+there (`GxEPD2_213_BN`, `GxEPD2_213_B73`, `GxEPD2_213_B72`) and rebuild. To
+rotate the image 180 degrees, set `DISPLAY_ROTATION` to `3`.
 
 ### Buttons
 | Button   | Function |

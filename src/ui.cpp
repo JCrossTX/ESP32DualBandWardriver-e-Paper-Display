@@ -313,13 +313,13 @@ void UI::begin() {
 }
 
 void UI::printFirmwareVersion() {
-  display.tft->setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+  display.tft->setTextColor(COLOR_FG, COLOR_BG);
   display.tft->setCursor(0, 0);
   display.tft->print(FIRMWARE_VERSION);
 }
 
 void UI::printBatteryLevel(int8_t batteryLevel) {
-  display.tft->setRotation(3);
+  display.tft->setRotation(DISPLAY_ROTATION);
   display.tft->setTextSize(1);
   display.tft->setTextColor(ST77XX_WHITE, ST77XX_BLACK);
 
@@ -350,6 +350,7 @@ void UI::printBatteryLevel(int8_t batteryLevel) {
 void UI::setDisplayMode(uint8_t new_mode) {
   if (this->incognito_counting) {
     this->incognito_counting = false;
+    this->incognito_blanked  = false;
     display.ctrlBacklight(true);
   }
   this->stat_display_mode      = new_mode;
@@ -357,19 +358,21 @@ void UI::setDisplayMode(uint8_t new_mode) {
   this->last_mode_change_ms    = millis();
   this->lastUpdateTime         = 0;
   if (new_mode != SD_FILES && new_mode != INCOGNITO)
-    display.tft->fillScreen(ST77XX_BLACK);
+    display.tft->fillScreen(COLOR_BG);
 }
 
 // ============================================================
 // Screen 1 — new large-format stats display
-// Layout for 160x80px:
-//   y=0  : GPS status + battery % + scan status  (size 1)
-//   y=19 : divider
-//   y=21 : 2.4GHz / 5GHz / BLE labels            (size 1)
-//   y=30 : big counts                             (size 2, 16px tall)
-//   y=47 : divider
-//   y=50 : NET / BLE totals                       (size 2)
-//   y=71 : geofence label (only when inside zone) (size 1)
+// Row positions and text sizes come from the STAT_* constants in configs.h so
+// the same layout works on the 160x80 TFT and the 250x122 e-Paper panel.
+//   STAT_HDR_Y    : GPS status + battery %            (size 1)
+//   STAT_STATUS_Y : scan status                       (size 1)
+//   STAT_DIV1_Y   : divider
+//   STAT_LABEL_Y  : 2.4GHz / 5GHz / BLE labels        (size 1)
+//   STAT_COUNT_Y  : big counts                        (STAT_COUNT_SIZE)
+//   STAT_DIV2_Y   : divider
+//   STAT_TOTAL_Y  : NET / BLE totals                  (STAT_TOTAL_SIZE)
+//   STAT_FOOTER_Y : geofence label (only inside zone) (size 1)
 // ============================================================
 void UI::drawStatsNew(uint32_t currentTime, uint32_t count2g4, uint32_t count5g,
                       uint32_t bleCount, int gpsSats, int8_t batteryLevel, bool do_now) {
@@ -379,19 +382,19 @@ void UI::drawStatsNew(uint32_t currentTime, uint32_t count2g4, uint32_t count5g,
 
   display.clearScreen();
 
-  display.tft->setRotation(3);
+  display.tft->setRotation(DISPLAY_ROTATION);
   display.tft->setTextWrap(false);
 
   display.tft->setTextSize(1);
 
   // ---- GPS status (left) ----
-  display.tft->setCursor(0, 0);
+  display.tft->setCursor(0, STAT_HDR_Y);
   bool has_fix = gps.getFixStatus();
   if (has_fix) {
-    display.tft->setTextColor(ST77XX_GREEN, ST77XX_BLACK);
+    display.tft->setTextColor(ST77XX_GREEN, COLOR_BG);
     display.tft->print(String(gpsSats) + " sats  ");
   } else {
-    display.tft->setTextColor(ST77XX_RED, ST77XX_BLACK);
+    display.tft->setTextColor(ST77XX_RED, COLOR_BG);
     display.tft->print("No GPS fix  ");
   }
 
@@ -401,8 +404,8 @@ void UI::drawStatsNew(uint32_t currentTime, uint32_t count2g4, uint32_t count5g,
   uint16_t batColor = (batteryLevel > 50) ? ST77XX_GREEN :
                       (batteryLevel > 20) ? ST77XX_YELLOW : ST77XX_RED;
   uint16_t batW = strlen(batBuf) * 6;
-  display.tft->setCursor(TFT_WIDTH - batW - 2, 0);
-  display.tft->setTextColor(batColor, ST77XX_BLACK);
+  display.tft->setCursor(TFT_WIDTH - batW - 2, STAT_HDR_Y);
+  display.tft->setTextColor(batColor, COLOR_BG);
   display.tft->print(batBuf);
 
   // ---- Scan status (right side, row 2) ----
@@ -415,28 +418,28 @@ void UI::drawStatsNew(uint32_t currentTime, uint32_t count2g4, uint32_t count5g,
     statusStr   = "STANDBY ";
     statusColor = ST77XX_YELLOW;
   }
-  display.tft->setCursor(TFT_WIDTH - statusStr.length() * 6, 9);
-  display.tft->setTextColor(statusColor, ST77XX_BLACK);
+  display.tft->setCursor(TFT_WIDTH - statusStr.length() * 6, STAT_STATUS_Y);
+  display.tft->setTextColor(statusColor, COLOR_BG);
   display.tft->print(statusStr);
 
   // ---- Divider ----
-  display.tft->drawFastHLine(0, 19, TFT_WIDTH, 0x4208);
+  display.tft->drawFastHLine(0, STAT_DIV1_Y, TFT_WIDTH, COLOR_DIVIDER);
 
   // ---- Column labels ----
-  uint16_t col_w = TFT_WIDTH / 3; // 53px each
+  uint16_t col_w = TFT_WIDTH / 3;
 
   display.tft->setTextSize(1);
-  display.tft->setTextColor(0x7BEF, ST77XX_BLACK);
+  display.tft->setTextColor(COLOR_DIM, COLOR_BG);
 
-  display.tft->setCursor(col_w * 0 + (col_w - 6 * 6) / 2, 21);
+  display.tft->setCursor(col_w * 0 + (col_w - 6 * 6) / 2, STAT_LABEL_Y);
   display.tft->print("2.4GHz");
-  display.tft->setCursor(col_w * 1 + (col_w - 6 * 4) / 2, 21);
+  display.tft->setCursor(col_w * 1 + (col_w - 6 * 4) / 2, STAT_LABEL_Y);
   display.tft->print("5GHz");
-  display.tft->setCursor(col_w * 2 + (col_w - 6 * 3) / 2, 21);
+  display.tft->setCursor(col_w * 2 + (col_w - 6 * 3) / 2, STAT_LABEL_Y);
   display.tft->print("BLE");
 
-  // ---- Big counts (size 2 = 12x16px per char) ----
-  display.tft->setTextSize(2);
+  // ---- Big counts ----
+  display.tft->setTextSize(STAT_COUNT_SIZE);
 
   String s24  = String(count2g4);
   String s5   = String(count5g);
@@ -447,72 +450,75 @@ void UI::drawStatsNew(uint32_t currentTime, uint32_t count2g4, uint32_t count5g,
   while (s5.length()   < 4) s5   += " ";
   while (sble.length() < 4) sble += " ";
 
-  display.tft->setTextColor(ST77XX_CYAN, ST77XX_BLACK);
-  display.tft->setCursor(col_w * 0 + 2, 30);
+  display.tft->setTextColor(ST77XX_CYAN, COLOR_BG);
+  display.tft->setCursor(col_w * 0 + 2, STAT_COUNT_Y);
   display.tft->print(s24);
 
-  display.tft->setTextColor(ST77XX_CYAN, ST77XX_BLACK);
-  display.tft->setCursor(col_w * 1 + 2, 30);
+  display.tft->setTextColor(ST77XX_CYAN, COLOR_BG);
+  display.tft->setCursor(col_w * 1 + 2, STAT_COUNT_Y);
   display.tft->print(s5);
 
-  display.tft->setTextColor(0xF81F, ST77XX_BLACK); // magenta/purple
-  display.tft->setCursor(col_w * 2 + 2, 30);
+  display.tft->setTextColor(COLOR_BLE, COLOR_BG); // magenta/purple
+  display.tft->setCursor(col_w * 2 + 2, STAT_COUNT_Y);
   display.tft->print(sble);
 
   // ---- Divider ----
-  display.tft->drawFastHLine(0, 47, TFT_WIDTH, 0x4208);
+  display.tft->drawFastHLine(0, STAT_DIV2_Y, TFT_WIDTH, COLOR_DIVIDER);
 
-  // ---- Totals (size 2) ----
-  display.tft->setTextSize(2);
+  // ---- Totals ----
+  display.tft->setTextSize(STAT_TOTAL_SIZE);
 
   String totalNets = String(wifi_ops.getTotalNetCount());
   String totalBLE  = String(wifi_ops.getTotalBLECount());
   while (totalNets.length() < 5) totalNets += " ";
   while (totalBLE.length()  < 5) totalBLE  += " ";
 
-  display.tft->setCursor(0, 50);
-  display.tft->setTextColor(0x7BEF, ST77XX_BLACK);
+  display.tft->setCursor(0, STAT_TOTAL_Y);
+  display.tft->setTextColor(COLOR_DIM, COLOR_BG);
   display.tft->print("W:");
-  display.tft->setTextColor(ST77XX_GREEN, ST77XX_BLACK);
+  display.tft->setTextColor(ST77XX_GREEN, COLOR_BG);
   if (wifi_ops.getTotalNetCount() > 9999)
-    display.tft->setTextSize(1);
+    display.tft->setTextSize(STAT_TOTAL_SIZE - 1);
   display.tft->print(totalNets);
-  display.tft->setTextSize(2);
+  display.tft->setTextSize(STAT_TOTAL_SIZE);
 
-  display.tft->setCursor(TFT_WIDTH / 2, 50);
-  display.tft->setTextColor(0x7BEF, ST77XX_BLACK);
+  display.tft->setCursor(TFT_WIDTH / 2, STAT_TOTAL_Y);
+  display.tft->setTextColor(COLOR_DIM, COLOR_BG);
   display.tft->print("B:");
-  display.tft->setTextColor(0xF81F, ST77XX_BLACK);
+  display.tft->setTextColor(COLOR_BLE, COLOR_BG);
   if (wifi_ops.getTotalBLECount() > 9999)
-    display.tft->setTextSize(1);
+    display.tft->setTextSize(STAT_TOTAL_SIZE - 1);
   display.tft->print(totalBLE);
-  display.tft->setTextSize(2);
+  display.tft->setTextSize(STAT_TOTAL_SIZE);
 
   // ---- Geofence label (size 1, bottom row) ----
   display.tft->setTextSize(1);
-  display.tft->setCursor(0, 71);
+  display.tft->setCursor(0, STAT_FOOTER_Y);
   if (!sd_obj.supported) {
-    display.tft->setTextColor(ST77XX_RED, ST77XX_BLACK);
+    display.tft->setTextColor(ST77XX_RED, COLOR_BG);
     display.tft->print("NO SD CARD                ");
   } else if (wifi_ops.in_geofence && wifi_ops.current_geo_label.length() > 0) {
     char dist[16];
-    display.tft->setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
+    display.tft->setTextColor(ST77XX_YELLOW, COLOR_BG);
     String geo = "GEO: " + wifi_ops.current_geo_label + " ";
     //while (geo.length() < 26) geo += " ";
     display.tft->print(geo);
     if (wifi_ops.checkGeofences(dist, sizeof(dist)))
       display.tft->print(dist);
   } else {
-    display.tft->setTextColor(ST77XX_BLACK, ST77XX_BLACK);
+    display.tft->setTextColor(COLOR_BG, COLOR_BG);
     display.tft->print("                          ");
   }
 
   if (wifi_ops.run_mode == CORE_MODE) {
     String node_num = "Nodes: " + String(wifi_ops.getNodeCount());
-    display.tft->setCursor(TFT_WIDTH - node_num.length() * 6, 80 - 9);
-    display.tft->setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+    // Shares the footer row with the geofence label, right aligned
+    display.tft->setCursor(TFT_WIDTH - node_num.length() * 6, STAT_FOOTER_Y);
+    display.tft->setTextColor(COLOR_FG, COLOR_BG);
     display.tft->print(node_num);
   }
+
+  display.flush(true);
 }
 
 // ============================================================
@@ -527,10 +533,10 @@ void UI::updateStats(uint32_t currentTime, uint32_t wifiCount, uint32_t count2g4
 
   display.clearScreen();
 
-  display.tft->setRotation(3);
+  display.tft->setRotation(DISPLAY_ROTATION);
   display.tft->setTextWrap(false);
 
-  display.tft->setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+  display.tft->setTextColor(COLOR_FG, COLOR_BG);
   display.tft->setTextSize(1);
 
   this->printFirmwareVersion();
@@ -564,14 +570,16 @@ void UI::updateStats(uint32_t currentTime, uint32_t wifiCount, uint32_t count2g4
 
   display.tft->println();
 
-  display.tft->setTextColor(ST77XX_GREEN, ST77XX_BLACK);
+  display.tft->setTextColor(ST77XX_GREEN, COLOR_BG);
   display.tft->print("Total Nets: ");
-  display.tft->setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+  display.tft->setTextColor(COLOR_FG, COLOR_BG);
   display.tft->println(String(wifi_ops.getTotalNetCount()) + "   ");
-  display.tft->setTextColor(CYAN, ST77XX_BLACK);
+  display.tft->setTextColor(CYAN, COLOR_BG);
   display.tft->print("Total BLE: ");
-  display.tft->setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+  display.tft->setTextColor(COLOR_FG, COLOR_BG);
   display.tft->println(String(wifi_ops.getTotalBLECount()) + "   ");
+
+  display.flush(true);
 }
 
 void UI::setupSDFileList() {
@@ -641,15 +649,15 @@ void UI::addNodes(Menu * menu, String name, uint8_t color, Menu * child, int pla
 void UI::drawCurrentMenu() {
   if (!current_menu || current_menu->list->size() == 0) return;
 
-  const uint8_t max_visible_items = 7;
+  const uint8_t max_visible_items = MENU_MAX_VISIBLE;
   const uint8_t header_height     = 8;
 
-  display.tft->setRotation(3);
-  display.tft->fillScreen(ST77XX_BLACK);
+  display.tft->setRotation(DISPLAY_ROTATION);
+  display.tft->fillScreen(COLOR_BG);
   display.tft->setTextSize(1);
   display.tft->setTextWrap(false);
 
-  display.tft->setTextColor(ST77XX_WHITE);
+  display.tft->setTextColor(COLOR_FG);
   display.tft->setCursor(0, 0);
   display.tft->println(current_menu->name);
 
@@ -666,11 +674,11 @@ void UI::drawCurrentMenu() {
     int y = header_height + i * 8;
 
     if (item_index == current_menu->selected) {
-      display.tft->setTextColor(ST77XX_BLACK, ST77XX_WHITE);
+      display.tft->setTextColor(COLOR_BG, COLOR_FG);
       display.tft->setCursor(0, y);
       display.tft->print("> ");
     } else {
-      display.tft->setTextColor(node.color, ST77XX_BLACK);
+      display.tft->setTextColor(node.color, COLOR_BG);
       display.tft->setCursor(0, y);
       display.tft->print("  ");
     }
@@ -688,14 +696,17 @@ void UI::drawCurrentMenu() {
 
   if (current_menu->scroll_offset > 0) {
     display.tft->setCursor(TFT_WIDTH - 10, header_height);
-    display.tft->setTextColor(ST77XX_WHITE);
+    display.tft->setTextColor(COLOR_FG);
     display.tft->print("^");
   }
   if (current_menu->scroll_offset + max_visible_items < current_menu->list->size()) {
     display.tft->setCursor(TFT_WIDTH - 10, header_height + (max_visible_items - 1) * 8);
-    display.tft->setTextColor(ST77XX_WHITE);
+    display.tft->setTextColor(COLOR_FG);
     display.tft->print("v");
   }
+
+  // Menus are driven by button presses, so the panel has to keep up with them
+  display.flush(true);
 }
 
 void UI::handleMenuNavigation() {
@@ -739,7 +750,7 @@ void UI::main(uint32_t currentTime) {
     this->last_stat_display_mode = 255;
     this->lastUpdateTime         = 0;
     g_force_display_redraw       = false;
-    display.tft->fillScreen(ST77XX_BLACK);
+    display.tft->fillScreen(COLOR_BG);
   }
 
   // Don't draw stats while docked — dock mode manages its own display
@@ -755,9 +766,10 @@ void UI::main(uint32_t currentTime) {
 
       if (!this->incognito_counting) {
         this->incognito_counting = true;
+        this->incognito_blanked  = false;
         this->incognito_start_ms = currentTime;
         this->incognito_last_sec = -1;
-        display.tft->fillScreen(ST77XX_BLACK);
+        display.tft->fillScreen(COLOR_BG);
         this->last_stat_display_mode = INCOGNITO;
       }
 
@@ -767,23 +779,29 @@ void UI::main(uint32_t currentTime) {
       if (elapsed < 5000) {
         if (secs_rem != this->incognito_last_sec) {
           this->incognito_last_sec = secs_rem;
-          display.tft->fillScreen(ST77XX_BLACK);
+          display.tft->fillScreen(COLOR_BG);
           display.tft->setTextSize(1);
-          display.tft->setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
+          display.tft->setTextColor(ST77XX_YELLOW, COLOR_BG);
           uint16_t lblX = (TFT_WIDTH - 14 * 6) / 2;
-          display.tft->setCursor(lblX > 0 ? lblX : 0, 26);
+          display.tft->setCursor(lblX > 0 ? lblX : 0, (TFT_HEIGHT / 2) - 14);
           display.tft->print("INCOGNITO MODE");
           display.tft->setTextSize(3);
-          display.tft->setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
+          display.tft->setTextColor(ST77XX_YELLOW, COLOR_BG);
           char buf[3];
           snprintf(buf, sizeof(buf), "%d", secs_rem);
-          display.tft->setCursor((TFT_WIDTH - 18) / 2, 44);
+          display.tft->setCursor((TFT_WIDTH - 18) / 2, (TFT_HEIGHT / 2) + 4);
           display.tft->print(buf);
+          display.flush(true);
         }
       } else {
-        if (this->incognito_counting) {
+        // Blank once, not on every pass — an e-Paper panel would otherwise
+        // refresh forever, and the TFT would redraw for nothing.
+        if (!this->incognito_blanked) {
+          this->incognito_blanked = true;
+          display.tft->fillScreen(COLOR_BG);
+          // On e-Paper this blanks and refreshes the panel; on the TFT it
+          // kills the backlight.
           display.ctrlBacklight(false);
-          display.tft->fillScreen(ST77XX_BLACK);
         }
       }
 
@@ -791,7 +809,7 @@ void UI::main(uint32_t currentTime) {
       if ((u_btn.justPressed() || d_btn.justPressed()) &&
           (currentTime - this->last_mode_change_ms >= 300)) {
         this->setDisplayMode(STATS_NEW);
-        display.tft->fillScreen(ST77XX_BLACK);
+        display.tft->fillScreen(COLOR_BG);
       }
       return;
     }
@@ -799,6 +817,7 @@ void UI::main(uint32_t currentTime) {
     // Leaving incognito — restore backlight
     if (this->incognito_counting) {
       this->incognito_counting = false;
+      this->incognito_blanked  = false;
       display.ctrlBacklight(true);
     }
 

@@ -72,6 +72,7 @@ class UI {
 
     // Incognito countdown state
     bool     incognito_counting = false;
+    bool     incognito_blanked  = false;
     uint32_t incognito_start_ms = 0;
     int      incognito_last_sec = -1;
 

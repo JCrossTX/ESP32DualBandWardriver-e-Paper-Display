@@ -110,6 +110,7 @@ void loop() {
   sd_obj.main();
   buffer.save();
   ui_obj.main(currentTime);
+  display.main(currentTime);
 
   // Solo or Core modes
   if ((gps.getFixStatus()) && (sd_obj.supported) && (ui_obj.stat_display_mode != SD_FILES))

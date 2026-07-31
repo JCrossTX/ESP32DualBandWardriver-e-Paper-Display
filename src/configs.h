@@ -17,7 +17,8 @@
 14 GPS UART
 23 TFT
 24 TFT
-27 TFT
+25 EPD BUSY (e-Paper builds only)
+27 TFT BL / EPD RST
 28 ACT LED
 */
 
@@ -64,6 +65,14 @@
 #define ON  HIGH
 #define OFF LOW
 
+// Uncomment the line below (or build with -DDISPLAY_EPAPER) to build for the
+// LAFVIN 2.13" SPI e-Paper panel instead of the stock 0.96" ST7735 TFT.
+// Only one display driver is compiled in at a time.
+//#define DISPLAY_EPAPER
+
+#ifndef DISPLAY_EPAPER
+
+//// ---- ST7735 0.96" 160x80 TFT (default) ----
 #define TFT_HEIGHT 80
 #define TFT_WIDTH  160
 
@@ -77,9 +86,64 @@
 #define TFT_SCLK 6
 #define TFT_BL   27
 
+#define DISPLAY_ROTATION 3
+
+#else
+
+//// ---- LAFVIN 2.13" SPI e-Paper, 250x122, SSD1680 ----
+// The panel shares SCK/MOSI with the SD card and needs two more control lines
+// than the TFT did: BUSY (new) and a real RST (the TFT left RST unconnected).
+// The backlight pin is free on an e-Paper build, so RST reuses GPIO27.
+#define TFT_HEIGHT 122
+#define TFT_WIDTH  250
+
+// SSD1680 is specified up to 20MHz; 4MHz is the speed GxEPD2 uses by default
+// and is comfortable over ribbon/jumper wiring.
+#define TFT_SPI_SPEED 4000000
+
+#define TFT_CS   23
+#define TFT_DC   24
+#define TFT_RST  27
+#define TFT_BL   -1  // e-Paper has no backlight
+#define TFT_MOSI 7
+#define TFT_SCLK 6
+#define EPD_BUSY 25
+
+// GxEPD2 driver class for the panel. The LAFVIN 2.13" HAT is a Waveshare
+// 2.13" V3/V4 equivalent (122x250, SSD1680). If your panel stays blank or
+// shows garbage, try one of the other 2.13" classes:
+//   GxEPD2_213_B74  GDEM0213B74 122x250, SSD1680   <- default
+//   GxEPD2_213_BN   DEPG0213BN  122x250, SSD1680
+//   GxEPD2_213_B73  GDEH0213B73 122x250, SSD1675B  (older V2 panels)
+//   GxEPD2_213_B72  GDEH0213B72 122x250, SSD1675A  (older V2 panels)
+#define EPD_DRIVER_CLASS GxEPD2_213_B74
+
+// 1 = landscape with the ribbon cable on the left, 3 = rotated 180 degrees
+#define DISPLAY_ROTATION 1
+
+// Refresh policy. A full refresh takes ~3.6s and flashes the panel; a fast
+// partial refresh takes ~0.5s but leaves faint ghosting behind, so a full
+// refresh is forced every EPD_FULL_REFRESH_EVERY partials to clean up.
+#define EPD_MIN_REFRESH_TIME    1500  // ms between panel refreshes
+#define EPD_FULL_REFRESH_EVERY  20    // partial refreshes before a full one
+
+#endif
+
 
 //// UI Stuff
-#define UI_UPDATE_TIME 5 * 1000 // 1 second
+#ifndef DISPLAY_EPAPER
+  #define UI_UPDATE_TIME 5 * 1000  // stats redraw interval
+  #define TIMER_UPDATE   1 * 1000  // countdown redraw interval
+  #define MENU_MAX_VISIBLE 7       // menu rows that fit on screen
+  #define UPLOAD_PROGRESS_STEP 1   // redraw upload % every N percent
+#else
+  // e-Paper redraws are slow and wear the panel, so everything ticks slower
+  // and the taller screen fits more menu rows.
+  #define UI_UPDATE_TIME 10 * 1000
+  #define TIMER_UPDATE   5 * 1000
+  #define MENU_MAX_VISIBLE 13
+  #define UPLOAD_PROGRESS_STEP 10
+#endif
 
 #define U_BTN 9
 #define D_BTN 8
@@ -90,13 +154,38 @@
 #define D_PULL false
 
 #define WEB_PAGE_TIMEOUT 60 * 1000 // 60 seconds
-#define TIMER_UPDATE 1 * 1000 // 1 second
 #define STATION_CONNECT_TIMEOUT 5 * 1000 // 5 seconds
 #define WIFI_CONFIG "/settings.json"
 #define LOG_FILE_NAME "wardrive"
 #define SETTING_SANITY "t_ssid"
 
 #define SMALL_CHAR_HEIGHT 8
+
+//// Stats screen (Screen 1) row layout — row positions and text sizes differ
+//// between the 160x80 TFT and the 250x122 e-Paper panel.
+#ifndef DISPLAY_EPAPER
+  #define STAT_HDR_Y      0
+  #define STAT_STATUS_Y   9
+  #define STAT_DIV1_Y     19
+  #define STAT_LABEL_Y    21
+  #define STAT_COUNT_Y    30
+  #define STAT_COUNT_SIZE 2
+  #define STAT_DIV2_Y     47
+  #define STAT_TOTAL_Y    50
+  #define STAT_TOTAL_SIZE 2
+  #define STAT_FOOTER_Y   71
+#else
+  #define STAT_HDR_Y      0
+  #define STAT_STATUS_Y   12
+  #define STAT_DIV1_Y     24
+  #define STAT_LABEL_Y    28
+  #define STAT_COUNT_Y    40
+  #define STAT_COUNT_SIZE 3
+  #define STAT_DIV2_Y     70
+  #define STAT_TOTAL_Y    76
+  #define STAT_TOTAL_SIZE 3
+  #define STAT_FOOTER_Y   108
+#endif
 
 
 //// Buffer stuff

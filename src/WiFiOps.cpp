@@ -1473,6 +1473,7 @@ bool WiFiOps::checkGeofences(char* dist_str, size_t dist_str_len) {
 
         display.tft->println(
           this->current_geo_label + " " + display_dist);
+        display.flush(true);
 
         this->geo_display_shown = true;
       }
@@ -1862,6 +1863,7 @@ bool WiFiOps::tryConnectToWiFi(unsigned long timeoutMs) {
   Logger::log(STD_MSG, this->user_ap_ssid);
   display.tft->print(this->user_ap_ssid);
   display.tft->println("...");
+  display.flush(true);
 
   // Connect to WiFi with AP credentials
   WiFi.mode(WIFI_STA);
@@ -1882,12 +1884,14 @@ bool WiFiOps::tryConnectToWiFi(unsigned long timeoutMs) {
     display.tft->println(this->user_ap_ssid);
     display.tft->print("IP: ");
     display.tft->println(WiFi.localIP());
+    display.flush(true);
     Logger::log(GUD_MSG, "WiFi connected!");
     Logger::log(GUD_MSG, "IP address: " + WiFi.localIP().toString());
     return true;
   } else {
     Logger::log(WARN_MSG, "Failed to connect to WiFi.");
     display.tft->println("Failed to connect");
+    display.flush(true);
     WiFi.disconnect(true);
     return false;
   }
@@ -1904,6 +1908,7 @@ void WiFiOps::startAccessPoint() {
   Logger::log(GUD_MSG, WiFi.softAPIP().toString());
   display.tft->print("IP: ");
   display.tft->println(WiFi.softAPIP().toString());
+  display.flush(true);
 }
 
 bool WiFiOps::wigleUpload(String filePath) {
@@ -2015,6 +2020,7 @@ bool WiFiOps::wigleUpload(String filePath) {
   String display_percent = "";
 
   size_t totalBytesSent = 0;
+  int    last_drawn_pct = -1;
   while (fileToUpload.available()) {
     size_t bytesRead = fileToUpload.read(buffer, BUFFER_SIZE);
     totalBytesSent += bytesRead;
@@ -2022,10 +2028,16 @@ bool WiFiOps::wigleUpload(String filePath) {
     Serial.print(totalBytesSent);
     Serial.println(" bytes...");
     percent_sent = (totalBytesSent * 100) / fileToUpload.size();
-    display.tft->drawRect(0, (TFT_HEIGHT / 3) * 2, TFT_WIDTH, TFT_HEIGHT, ST77XX_BLACK);
-    display.tft->setCursor(0, (TFT_HEIGHT / 3) * 2);
-    display_percent = (String)percent_sent + "%";
-    display.drawCenteredText(display_percent, false);
+    // Only redraw when the number moves far enough to be worth it — every
+    // chunk would mean hundreds of redraws, which an e-Paper panel cannot
+    // keep up with.
+    if ((int)percent_sent - last_drawn_pct >= UPLOAD_PROGRESS_STEP) {
+      last_drawn_pct = percent_sent;
+      display.tft->drawRect(0, (TFT_HEIGHT / 3) * 2, TFT_WIDTH, TFT_HEIGHT, COLOR_BG);
+      display.tft->setCursor(0, (TFT_HEIGHT / 3) * 2);
+      display_percent = (String)percent_sent + "%";
+      display.drawCenteredText(display_percent, false);
+    }
     client->write(buffer, bytesRead);
   }
 
@@ -2167,16 +2179,22 @@ bool WiFiOps::wdgwarsUpload(String filePath) {
   uint8_t pct = 0;
   String pctStr;
 
+  int last_drawn_pct = -1;
+
   while (fileToUpload.available()) {
     size_t n = fileToUpload.read(buf, CHUNK);
     totalSent += n;
     client->write(buf, n);
     pct = (totalSent * 100) / fileToUpload.size();
-    display.tft->drawRect(0, (TFT_HEIGHT / 3) * 2, TFT_WIDTH,
-                          TFT_HEIGHT - (TFT_HEIGHT / 3) * 2, ST77XX_BLACK);
-    display.tft->setCursor(0, (TFT_HEIGHT / 3) * 2);
-    pctStr = String(pct) + "%";
-    display.drawCenteredText(pctStr, false);
+    // See uploadFile(): redraw only on a meaningful change in percentage
+    if ((int)pct - last_drawn_pct >= UPLOAD_PROGRESS_STEP) {
+      last_drawn_pct = pct;
+      display.tft->drawRect(0, (TFT_HEIGHT / 3) * 2, TFT_WIDTH,
+                            TFT_HEIGHT - (TFT_HEIGHT / 3) * 2, COLOR_BG);
+      display.tft->setCursor(0, (TFT_HEIGHT / 3) * 2);
+      pctStr = String(pct) + "%";
+      display.drawCenteredText(pctStr, false);
+    }
   }
 
   client->print(part2);
@@ -2792,12 +2810,13 @@ void WiFiOps::shutdownAccessPoint(bool ap_active) {
 void WiFiOps::showCountdown() {
   if (millis() - this->last_timer > TIMER_UPDATE) {
     this->last_timer = millis();
-    display.tft->fillRect(0, SMALL_CHAR_HEIGHT * 2, TFT_WIDTH, TFT_HEIGHT - (SMALL_CHAR_HEIGHT * 2), ST77XX_BLACK);
+    display.tft->fillRect(0, SMALL_CHAR_HEIGHT * 2, TFT_WIDTH, TFT_HEIGHT - (SMALL_CHAR_HEIGHT * 2), COLOR_BG);
     display.tft->setCursor(0, SMALL_CHAR_HEIGHT * 4);
     display.tft->println("Wardring starts...\n");
     display.tft->setTextSize(2);
     display.tft->println(60 - ((millis() - this->last_web_client_activity) / 1000));
     display.tft->setTextSize(1);
+    display.flush(true);
   }
 }
 
@@ -3003,6 +3022,7 @@ void WiFiOps::handleDockConnecting() {
   display.tft->setTextSize(1);
   display.tft->println("Attempt " +
   String(this->dock_connect_attempts + 1) + "/3");
+  display.flush(true);
 
   // Switch WiFi from scan/promiscuous to STA client
   this->deinitBLE();
@@ -3033,6 +3053,7 @@ void WiFiOps::handleDockConnecting() {
     display.tft->println(this->dock_ip);
     display.tft->setTextColor(ST77XX_WHITE, ST77XX_BLACK);
     display.tft->println("browse to config");
+    display.flush(true);
 
     // Start web server so you can access config/files while docked
     this->serveConfigPage();
@@ -3068,6 +3089,7 @@ void WiFiOps::handleDockConnecting() {
       display.tft->println(trigSSID);
       display.tft->println("Resuming in");
       display.tft->println(String(DOCK_FAIL_DISPLAY_MS / 1000) + "s");
+      display.flush(true);
 
       this->dock_state    = DOCK_STATE_FAILED;
       this->dock_fail_time = millis();
@@ -3087,6 +3109,7 @@ void WiFiOps::handleDockUploading() {
   display.tft->println("UPLOADING");
   display.tft->setTextColor(ST77XX_WHITE, ST77XX_BLACK);
   display.tft->println(this->dock_ip);
+  display.flush(true);
 
   this->uploadAllPending(); // Chunk 3
 
