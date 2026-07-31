@@ -97,17 +97,19 @@
 //
 // Both control pins are ESP32-C5 strapping pins, which is unavoidable on the
 // Waveshare ESP32-C5-WIFI6-KIT — GPIO25/26/27/28 are the only free header pins
-// left once the TFT, SD, GPS, I2C and buttons are assigned, and all four strap:
-//   GPIO25 straps the SDIO sampling clock edge. This firmware talks to the SD
-//     card over SPI and never uses SDIO, so whatever the panel drives BUSY to
-//     at reset does not matter. That makes it the safe one of the four.
-//   GPIO27 straps boot mode (with GPIO26/28) and ROM message printing, and on
-//     the Waveshare kit it also feeds the onboard WS2812. Neither the panel's
-//     RST input nor the WS2812's data input pulls the line, so the board's own
-//     strapping default still wins at reset — the same situation as the stock
-//     TFT build, which drives its backlight from this pin. Do not add a
-//     pull-down here: GPIO27 low together with GPIO28 low is an invalid
-//     strapping combination.
+// left once the TFT, SD, GPS, I2C and buttons are assigned. Per that board's
+// schematic (ESP32-C5-WIFI6-KIT-NXRX) both are still safe here:
+//   GPIO25 is module pin 26 straight through to header P1-13 with nothing else
+//     on the net — no pull, no load. Its strap only selects the SDIO sampling
+//     clock edge, and this firmware reaches the SD card over SPI and never
+//     uses SDIO, so whatever the panel drives BUSY to at reset is irrelevant.
+//   GPIO27 is module pin 18 with R8, a 10K pull-up to 3V3, so the boot-mode
+//     strap reads high at reset regardless of what is hanging off the pin. It
+//     also runs through R3 (0R) to the DI pin of the onboard WS2812B-0807,
+//     which is a high-impedance CMOS input and does not load the line. The
+//     reset pulse GxEPD2 issues is not a valid WS2812 frame, so the LED stays
+//     dark. Do not add a pull-down here: GPIO27 and GPIO28 both low at reset
+//     is an invalid strapping combination.
 #define TFT_HEIGHT 122
 #define TFT_WIDTH  250
 

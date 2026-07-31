@@ -6,6 +6,7 @@ Logs are formatted for WiGLE and saved to SD card.
 - [Leaderboards](#leaderboards)
 - [Connections](#connections)
     - [Display](#display)
+    - [Waveshare Kit Caveats](#waveshare-kit-caveats)
     - [GPS](#gps)
     - [SD Card](#sd-card)
     - [Battery Fuel Gauge](#battery-fuel-gauge)
@@ -63,16 +64,27 @@ The firmware supports two displays. Pick one at build time — see [e-Paper Disp
 The panel needs `BUSY` (new) and a real `RST` line. `RST` reuses the pin the TFT
 used for its backlight, since an e-Paper panel has none.
 
-> **Waveshare ESP32-C5-WIFI6-KIT:** all of `GPIO25`/`26`/`27`/`28` are ESP32-C5
-> strapping pins, and they are what is left over once the display, SD, GPS, I2C
-> and buttons are assigned. `GPIO25` only straps the SDIO sampling clock edge,
-> which this firmware never uses, so it is safe for `BUSY`. `GPIO27` straps boot
-> mode and also drives the board's onboard RGB LED — nothing on the e-Paper side
-> pulls that line, so it behaves the same as the stock TFT backlight wiring, but
-> do not add a pull-down to it (`GPIO27` and `GPIO28` both low at reset is an
-> invalid strapping combination). Note also that `GPIO13`/`GPIO14`, used for the
-> GPS UART, are this board's native USB D-/D+ — flash and monitor through the
-> `UART` Type-C port, not the `USB` one.
+> **Waveshare ESP32-C5-WIFI6-KIT:** `GPIO25` (BUSY) is module pin 26 wired
+> straight to header `P1-13` with nothing else on the net, and `GPIO27` (RST)
+> has a 10K pull-up (`R8`) holding its boot-mode strap high, so both are safe
+> for the e-Paper panel. `GPIO27` also feeds the onboard WS2812B through a 0Ω
+> resistor; its data input is high-impedance and a reset pulse is not a valid
+> WS2812 frame, so the LED just stays dark. Do not add a pull-down to `GPIO27`
+> — `GPIO27` and `GPIO28` both low at reset is an invalid strapping
+> combination. See [Waveshare kit caveats](#waveshare-kit-caveats) for pins in
+> the stock map that do conflict on this board.
+
+### Waveshare Kit Caveats
+Three pins in the map above collide with onboard circuitry on the **Waveshare
+ESP32-C5-WIFI6-KIT**. These are unrelated to the display choice — they apply to
+the TFT and e-Paper builds alike — but they will stop the board from working if
+you wire it up as-is. Verified against the `ESP32-C5-WIFI6-KIT-NXRX` schematic.
+
+| Pin | Stock use | Conflict on this board | Fix |
+| --- | --------- | ---------------------- | --- |
+| `GPIO6`  | SPI `SCK` | `R39` (0Ω, populated) ties it to the `BAT_ADC` node, which carries `C14`+`C15` = **200nF to ground** plus a 200K/100K divider. That much capacitance makes a multi-MHz clock impossible. | Remove `R39`. The firmware reads the battery over the I2C fuel gauge on `GPIO4`/`GPIO5`, so the onboard ADC divider is redundant. |
+| `GPIO28` | Activity LED | This is the `BOOT` net: `Key2` (BOOT button) to ground, the auto-download transistor `T1` driven by the CH343's DTR/RTS, and a 10K pull-up (`R9`). An LED to ground also drags this strapping pin below V<sub>IH</sub> at reset, so the chip comes up in serial download mode instead of running your firmware. | Move `LED_PIN` to `GPIO26` (free on `P1-12`), or leave the activity LED unpopulated. |
+| `GPIO15` | `SELECT` (per the table above) | Module pin 19 is marked `NC/IO15` — not bonded out on this module. | Use `GPIO1`, which is what `configs.h` already sets `C_BTN` to. The table above is stale. |
 
 ### [GPS](https://a.co/d/hIqIitg)
 | ESP32-C5 | GPS   |
@@ -83,6 +95,8 @@ used for its backlight, since an e-Paper panel has none.
 | `GPIO14` | `TX`  |
 
 > **Tip:** The GPS module's ceramic patch antenna should be oriented face-up toward the sky for best signal. In the JCMK host board case the antenna mounts vertically by default — relocating it to the top of the enclosure significantly improves acquisition time.
+
+> **Waveshare kit:** `GPIO13`/`GPIO14` are this board's native USB D-/D+, broken out on `P2-13`/`P2-12`. With a GPS attached, flash and monitor through the `UART` Type-C port (the CH343 bridge on `GPIO11`/`GPIO12`), not the `USB` one.
 
 ### [SD Card](https://www.sparkfun.com/sparkfun-microsd-transflash-breakout.html)
 | ESP32-C5 | SD     |
