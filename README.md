@@ -49,6 +49,10 @@ The firmware supports two displays. Pick one at build time — see [e-Paper Disp
 | `GPIO27` | `BL`    |
 | `RST`    | `RST`   |
 
+> **Waveshare kit:** `SCK` moves to `GPIO3` (`P1-4`) and the display `RST` goes
+> to `CHIP_PU` on `P1-2`. Everything else is as listed — see
+> [Waveshare ESP32-C5-WIFI6-KIT](#waveshare-esp32-c5-wifi6-kit).
+
 **LAFVIN 2.13" e-Paper (250x122, SSD1680)**
 | ESP32-C5 | Display        |
 | -------- | -------------- |
@@ -114,11 +118,12 @@ schematic:
   populated.
 
 **Prefer to keep `SCK` on `GPIO6`?** Remove `R39` and set `SPI_SCK` back to `6`
-in the Waveshare block of `configs.h`. That regains the native IOMUX routing,
-which is worth doing if you run the ST7735 at its full 27 MHz — a GPIO-matrix
-clock is fine at the e-Paper's 4 MHz but is closer to its limit at 27 MHz. The
-firmware reads the battery over the I2C fuel gauge, so the onboard ADC divider
-`R39` feeds is redundant either way.
+in the Waveshare block of `configs.h` to regain the native IOMUX routing. This
+is optional, not a fix for a problem: routing through the GPIO matrix is good
+to roughly 40 MHz, so both the ST7735 at 27 MHz and the e-Paper at 4 MHz have
+margin on `GPIO3`, and jumper wire quality will limit you before the matrix
+does. The firmware reads the battery over the I2C fuel gauge, so the onboard
+ADC divider `R39` feeds is redundant either way.
 
 **Leave alone on this board:** `GPIO6` (unless `R39` is removed),
 `GPIO11`/`GPIO12` (UART console via the CH343), `GPIO15` (module pin 19 is
