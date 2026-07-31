@@ -123,10 +123,20 @@
 #define TFT_SCLK 6
 #define EPD_BUSY 25
 
-// GxEPD2 driver class for the panel. The LAFVIN 2.13" HAT is a Waveshare
-// 2.13" V3/V4 equivalent (122x250, SSD1680). If your panel stays blank or
-// shows garbage, try one of the other 2.13" classes:
-//   GxEPD2_213_B74  GDEM0213B74 122x250, SSD1680   <- default
+// GxEPD2 driver class for the panel. LAFVIN ships this HAT as a Waveshare
+// 2.13" V4 (122x250, SSD1680); their epd2in13_V4 driver and GxEPD2_213_B74
+// agree command for command:
+//   0x01 driver output control  F9 00 00
+//   0x3C border waveform        05
+//   0x21 display update control 00 80
+//   0x18 temperature sensor     80
+//   0x22 full refresh           F7
+//   BUSY asserted high
+// The only difference is the partial refresh argument — LAFVIN sends FF and
+// GxEPD2 sends FC, which is the same mode 2 update but leaves the panel
+// powered for the next partial instead of shutting it down each time.
+//
+// If a differently sourced panel comes up blank or garbled, try:
 //   GxEPD2_213_BN   DEPG0213BN  122x250, SSD1680
 //   GxEPD2_213_B73  GDEH0213B73 122x250, SSD1675B  (older V2 panels)
 //   GxEPD2_213_B72  GDEH0213B72 122x250, SSD1675A  (older V2 panels)

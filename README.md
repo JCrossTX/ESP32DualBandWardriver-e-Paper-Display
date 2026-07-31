@@ -199,11 +199,17 @@ shares `SCK`/`MOSI` with the SD card and adds a `BUSY` line on `GPIO25`.
   ghosting that partial refreshes leave behind.
 - Upload progress counts up in steps of 10% instead of 1%.
 
-**If the panel stays blank or shows garbage**
-Panels sold as "2.13 inch" use several different controllers. Change
-`EPD_DRIVER_CLASS` in `src/configs.h` to one of the other 2.13" classes listed
-there (`GxEPD2_213_BN`, `GxEPD2_213_B73`, `GxEPD2_213_B72`) and rebuild. To
-rotate the image 180 degrees, set `DISPLAY_ROTATION` to `3`.
+**Panel compatibility**
+LAFVIN ships this HAT as a Waveshare 2.13" V4, and their
+[epd2in13_V4 driver](https://github.com/lafvintech/LAFVIN-2.13inch-ePaper-HAT)
+matches GxEPD2's `GxEPD2_213_B74` command for command — same init sequence,
+same full-refresh argument, same BUSY polarity — so that is the default.
+
+Panels sold as "2.13 inch" from other sources use several different
+controllers. If yours comes up blank or garbled, change `EPD_DRIVER_CLASS` in
+`src/configs.h` to one of the other 2.13" classes listed there
+(`GxEPD2_213_BN`, `GxEPD2_213_B73`, `GxEPD2_213_B72`) and rebuild. To rotate
+the image 180 degrees, set `DISPLAY_ROTATION` to `3`.
 
 ### Buttons
 | Button   | Function |
