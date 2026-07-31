@@ -241,6 +241,12 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     needs: [compile_sketch]
+    # Publishing a release, and creating its tag, needs write access to
+    # repository contents. This repository's default GITHUB_TOKEN is read-only,
+    # which made the release API return 403. Scoped to this job so the build
+    # jobs keep the read-only default.
+    permissions:
+      contents: write
     # Pushing a tag already builds every variant (see the trigger at the top of
     # this file), so let it publish the release too instead of needing a
     # separate manual dispatch on the same tag.
