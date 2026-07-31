@@ -63,6 +63,17 @@ The firmware supports two displays. Pick one at build time — see [e-Paper Disp
 The panel needs `BUSY` (new) and a real `RST` line. `RST` reuses the pin the TFT
 used for its backlight, since an e-Paper panel has none.
 
+> **Waveshare ESP32-C5-WIFI6-KIT:** all of `GPIO25`/`26`/`27`/`28` are ESP32-C5
+> strapping pins, and they are what is left over once the display, SD, GPS, I2C
+> and buttons are assigned. `GPIO25` only straps the SDIO sampling clock edge,
+> which this firmware never uses, so it is safe for `BUSY`. `GPIO27` straps boot
+> mode and also drives the board's onboard RGB LED — nothing on the e-Paper side
+> pulls that line, so it behaves the same as the stock TFT backlight wiring, but
+> do not add a pull-down to it (`GPIO27` and `GPIO28` both low at reset is an
+> invalid strapping combination). Note also that `GPIO13`/`GPIO14`, used for the
+> GPS UART, are this board's native USB D-/D+ — flash and monitor through the
+> `UART` Type-C port, not the `USB` one.
+
 ### [GPS](https://a.co/d/hIqIitg)
 | ESP32-C5 | GPS   |
 | -------- | ----- |

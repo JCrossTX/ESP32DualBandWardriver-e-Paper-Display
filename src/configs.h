@@ -94,6 +94,20 @@
 // The panel shares SCK/MOSI with the SD card and needs two more control lines
 // than the TFT did: BUSY (new) and a real RST (the TFT left RST unconnected).
 // The backlight pin is free on an e-Paper build, so RST reuses GPIO27.
+//
+// Both control pins are ESP32-C5 strapping pins, which is unavoidable on the
+// Waveshare ESP32-C5-WIFI6-KIT — GPIO25/26/27/28 are the only free header pins
+// left once the TFT, SD, GPS, I2C and buttons are assigned, and all four strap:
+//   GPIO25 straps the SDIO sampling clock edge. This firmware talks to the SD
+//     card over SPI and never uses SDIO, so whatever the panel drives BUSY to
+//     at reset does not matter. That makes it the safe one of the four.
+//   GPIO27 straps boot mode (with GPIO26/28) and ROM message printing, and on
+//     the Waveshare kit it also feeds the onboard WS2812. Neither the panel's
+//     RST input nor the WS2812's data input pulls the line, so the board's own
+//     strapping default still wins at reset — the same situation as the stock
+//     TFT build, which drives its backlight from this pin. Do not add a
+//     pull-down here: GPIO27 low together with GPIO28 low is an invalid
+//     strapping combination.
 #define TFT_HEIGHT 122
 #define TFT_WIDTH  250
 
