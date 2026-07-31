@@ -6,7 +6,7 @@ Logs are formatted for WiGLE and saved to SD card.
 - [Leaderboards](#leaderboards)
 - [Connections](#connections)
     - [Display](#display)
-    - [Waveshare Kit Caveats](#waveshare-kit-caveats)
+    - [Waveshare ESP32-C5-WIFI6-KIT](#waveshare-esp32-c5-wifi6-kit)
     - [GPS](#gps)
     - [SD Card](#sd-card)
     - [Battery Fuel Gauge](#battery-fuel-gauge)
@@ -71,20 +71,59 @@ used for its backlight, since an e-Paper panel has none.
 > resistor; its data input is high-impedance and a reset pulse is not a valid
 > WS2812 frame, so the LED just stays dark. Do not add a pull-down to `GPIO27`
 > — `GPIO27` and `GPIO28` both low at reset is an invalid strapping
-> combination. See [Waveshare kit caveats](#waveshare-kit-caveats) for pins in
-> the stock map that do conflict on this board.
+> combination. See [Waveshare ESP32-C5-WIFI6-KIT](#waveshare-esp32-c5-wifi6-kit) for that
+> board's pin map.
 
-### Waveshare Kit Caveats
-Three pins in the map above collide with onboard circuitry on the **Waveshare
-ESP32-C5-WIFI6-KIT**. These are unrelated to the display choice — they apply to
-the TFT and e-Paper builds alike — but they will stop the board from working if
-you wire it up as-is. Verified against the `ESP32-C5-WIFI6-KIT-NXRX` schematic.
+### Waveshare ESP32-C5-WIFI6-KIT
+The firmware ships a second pin map for the **Waveshare ESP32-C5-WIFI6-KIT**.
+Select it by uncommenting `#define BOARD_WAVESHARE_C5_KIT` in `src/configs.h`,
+or by building with `-DBOARD_WAVESHARE_C5_KIT`. It combines with the display
+switch, so all four board/display pairings are valid builds.
 
-| Pin | Stock use | Conflict on this board | Fix |
-| --- | --------- | ---------------------- | --- |
-| `GPIO6`  | SPI `SCK` | `R39` (0Ω, populated) ties it to the `BAT_ADC` node, which carries `C14`+`C15` = **200nF to ground** plus a 200K/100K divider. That much capacitance makes a multi-MHz clock impossible. | Remove `R39`. The firmware reads the battery over the I2C fuel gauge on `GPIO4`/`GPIO5`, so the onboard ADC divider is redundant. |
-| `GPIO28` | Activity LED | This is the `BOOT` net: `Key2` (BOOT button) to ground, the auto-download transistor `T1` driven by the CH343's DTR/RTS, and a 10K pull-up (`R9`). An LED to ground also drags this strapping pin below V<sub>IH</sub> at reset, so the chip comes up in serial download mode instead of running your firmware. | Move `LED_PIN` to `GPIO26` (free on `P1-12`), or leave the activity LED unpopulated. |
-| `GPIO15` | `SELECT` (per the table above) | Module pin 19 is marked `NC/IO15` — not bonded out on this module. | Use `GPIO1`, which is what `configs.h` already sets `C_BTN` to. The table above is stale. |
+Two pins move relative to the stock map. Everything else is identical, so the
+same wiring carries over.
+
+| Function | Stock | Waveshare kit | Header |
+| -------- | ----- | ------------- | ------ |
+| SPI `SCK`   | `GPIO6`  | **`GPIO3`**  | `P1-4`  |
+| SPI `MISO`  | `GPIO2`  | `GPIO2`      | `P1-3`  |
+| SPI `MOSI`  | `GPIO7`  | `GPIO7`      | `P1-8`  |
+| SD `CS`     | `GPIO10` | `GPIO10`     | `P1-11` |
+| Display `CS`   | `GPIO23` | `GPIO23`  | `P2-5`  |
+| Display `DC`   | `GPIO24` | `GPIO24`  | `P2-4`  |
+| Display `BL` / e-Paper `RST` | `GPIO27` | `GPIO27` | `P2-7` |
+| e-Paper `BUSY` | `GPIO25` | `GPIO25`  | `P1-13` |
+| `UP` / `DOWN` / `SELECT` | `GPIO9`/`GPIO8`/`GPIO1` | same | `P1-10`/`P1-9`/`P1-6` |
+| Fuel gauge `SCL`/`SDA` | `GPIO4`/`GPIO5` | same | `P2-8`/`P2-9` |
+| GPS `RX`/`TX` | `GPIO13`/`GPIO14` | same | `P2-13`/`P2-12` |
+| Activity LED | `GPIO28` | **`GPIO0`** | `P1-5`  |
+
+**Why those two moved** — verified against the `ESP32-C5-WIFI6-KIT-NXRX`
+schematic:
+
+- **`SCK` `GPIO6` → `GPIO3`.** `R39` (0Ω, populated) ties `GPIO6` to the
+  `BAT_ADC` node, which carries `C14`+`C15` = **200nF to ground** plus a
+  200K/100K divider. Driving a 4 MHz clock into 200nF would need amps of charge
+  current — no usable clock survives. `GPIO3` is free; its MTDI strap only
+  selects the SDIO sampling edge, which this firmware never uses.
+- **Activity LED `GPIO28` → `GPIO0`.** `GPIO28` is the `BOOT` net: the BOOT
+  button to ground, the CH343 auto-download transistor `T1`, and a 10K pull-up
+  (`R9`). An LED to ground holds that strapping pin below V<sub>IH</sub> at
+  reset, so the chip would come up in serial download mode instead of running
+  your firmware. `GPIO0` is clean — its 32.768 kHz crystal network is not
+  populated.
+
+**Prefer to keep `SCK` on `GPIO6`?** Remove `R39` and set `SPI_SCK` back to `6`
+in the Waveshare block of `configs.h`. That regains the native IOMUX routing,
+which is worth doing if you run the ST7735 at its full 27 MHz — a GPIO-matrix
+clock is fine at the e-Paper's 4 MHz but is closer to its limit at 27 MHz. The
+firmware reads the battery over the I2C fuel gauge, so the onboard ADC divider
+`R39` feeds is redundant either way.
+
+**Leave alone on this board:** `GPIO6` (unless `R39` is removed),
+`GPIO11`/`GPIO12` (UART console via the CH343), `GPIO15` (module pin 19 is
+`NC`) and `GPIO28`. Note the button table above lists `GPIO15` for `SELECT`;
+that is stale — `configs.h` has always used `GPIO1`, which is what works here.
 
 ### [GPS](https://a.co/d/hIqIitg)
 | ESP32-C5 | GPS   |
@@ -122,6 +161,9 @@ you wire it up as-is. Verified against the `ESP32-C5-WIFI6-KIT-NXRX` schematic.
 | -------- | --- |
 | `GPIO28` | `+` |
 | `GND`    | `-` |
+
+> **Waveshare kit:** use `GPIO0` (`P1-5`) instead. `GPIO28` is the `BOOT` net on
+> that board — see [Waveshare ESP32-C5-WIFI6-KIT](#waveshare-esp32-c5-wifi6-kit).
 
 ### User Buttons
 The User Buttons require pull-down resistors.
@@ -192,12 +234,25 @@ instead of the stock ST7735 TFT. Wiring is in [Display](#display); the panel
 shares `SCK`/`MOSI` with the SD card and adds a `BUSY` line on `GPIO25`.
 
 **Getting the firmware**
-- Download `src.esp32c5devkitc1_epaper.bin` from [Releases](../../releases) and
-  flash or SD-update it exactly like the standard build, or
+- Download the matching `.bin` from [Releases](../../releases) and flash or
+  SD-update it exactly like the standard build, or
 - Build it yourself: uncomment `#define DISPLAY_EPAPER` in `src/configs.h` (or
   compile with `-DDISPLAY_EPAPER`). Building requires the
   [GxEPD2](https://github.com/ZinggJM/GxEPD2) library in addition to the usual
   dependencies.
+
+The display switch and the [board switch](#waveshare-esp32-c5-wifi6-kit) are
+independent, so CI publishes all four combinations:
+
+| Board | Display | Binary |
+| ----- | ------- | ------ |
+| JCMK host board | ST7735  | `src.esp32c5devkitc1.bin` |
+| JCMK host board | e-Paper | `src.esp32c5devkitc1_epaper.bin` |
+| Waveshare kit   | ST7735  | `src.waveshare_c5_kit.bin` |
+| Waveshare kit   | e-Paper | `src.waveshare_c5_kit_epaper.bin` |
+
+`bootloader.bin` and `partitions.bin` are identical for all four; the release
+ships one copy.
 
 **What differs from the TFT build**
 - The bigger panel shows the same screens with larger counters and fits 13 menu

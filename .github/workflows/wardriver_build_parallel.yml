@@ -17,8 +17,10 @@ jobs:
       fail-fast: false
       matrix:
         board:
-          - { name: "ESP32-C5-DevKitC-1",            flag: "C5_WARDRIVER",              fbqn: "esp32:esp32:esp32c5:PartitionScheme=min_spiffs,PSRAM=enabled",                                                file_name: "esp32c5devkitc1",         tft: false, tft_file: "",                                   build_dir: "esp32c5",                    addr: "0x2000",   idf_ver: "3.3.0",    nimble_ver: "2.3.0",    esp_async: "bigbrodude6119/ESPAsyncWebServer",     esp_async_ver: "master", display_flag: "",                  upload_common: true }
-          - { name: "ESP32-C5-DevKitC-1 e-Paper",    flag: "C5_WARDRIVER",              fbqn: "esp32:esp32:esp32c5:PartitionScheme=min_spiffs,PSRAM=enabled",                                                file_name: "esp32c5devkitc1_epaper",  tft: false, tft_file: "",                                   build_dir: "esp32c5",                    addr: "0x2000",   idf_ver: "3.3.0",    nimble_ver: "2.3.0",    esp_async: "bigbrodude6119/ESPAsyncWebServer",     esp_async_ver: "master", display_flag: " -DDISPLAY_EPAPER", upload_common: false }
+          - { name: "ESP32-C5-DevKitC-1",            flag: "C5_WARDRIVER",              fbqn: "esp32:esp32:esp32c5:PartitionScheme=min_spiffs,PSRAM=enabled",                                                file_name: "esp32c5devkitc1",         tft: false, tft_file: "",                                   build_dir: "esp32c5",                    addr: "0x2000",   idf_ver: "3.3.0",    nimble_ver: "2.3.0",    esp_async: "bigbrodude6119/ESPAsyncWebServer",     esp_async_ver: "master", extra_flags: "",                  upload_common: true }
+          - { name: "ESP32-C5-DevKitC-1 e-Paper",    flag: "C5_WARDRIVER",              fbqn: "esp32:esp32:esp32c5:PartitionScheme=min_spiffs,PSRAM=enabled",                                                file_name: "esp32c5devkitc1_epaper",  tft: false, tft_file: "",                                   build_dir: "esp32c5",                    addr: "0x2000",   idf_ver: "3.3.0",    nimble_ver: "2.3.0",    esp_async: "bigbrodude6119/ESPAsyncWebServer",     esp_async_ver: "master", extra_flags: " -DDISPLAY_EPAPER", upload_common: false }
+          - { name: "Waveshare C5 Kit",              flag: "C5_WARDRIVER",              fbqn: "esp32:esp32:esp32c5:PartitionScheme=min_spiffs,PSRAM=enabled",                                                file_name: "waveshare_c5_kit",        tft: false, tft_file: "",                                   build_dir: "esp32c5",                    addr: "0x2000",   idf_ver: "3.3.0",    nimble_ver: "2.3.0",    esp_async: "bigbrodude6119/ESPAsyncWebServer",     esp_async_ver: "master", extra_flags: " -DBOARD_WAVESHARE_C5_KIT", upload_common: false }
+          - { name: "Waveshare C5 Kit e-Paper",      flag: "C5_WARDRIVER",              fbqn: "esp32:esp32:esp32c5:PartitionScheme=min_spiffs,PSRAM=enabled",                                                file_name: "waveshare_c5_kit_epaper", tft: false, tft_file: "",                                   build_dir: "esp32c5",                    addr: "0x2000",   idf_ver: "3.3.0",    nimble_ver: "2.3.0",    esp_async: "bigbrodude6119/ESPAsyncWebServer",     esp_async_ver: "master", extra_flags: " -DBOARD_WAVESHARE_C5_KIT -DDISPLAY_EPAPER", upload_common: false }
 
     steps:
       - name: Checkout Code
@@ -172,7 +174,7 @@ jobs:
         with:
           sketch-names: src.ino
           arduino-board-fqbn: ${{ matrix.board.fbqn }}
-          extra-arduino-cli-args: "--warnings none --build-property compiler.cpp.extra_flags='-D${{ matrix.board.flag }}${{ matrix.board.display_flag }}'"
+          extra-arduino-cli-args: "--warnings none --build-property compiler.cpp.extra_flags='-D${{ matrix.board.flag }}${{ matrix.board.extra_flags }}'"
           arduino-platform: esp32:esp32@${{ matrix.board.idf_ver }}
           platform-url: https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json
 
